@@ -1,0 +1,5 @@
+.mypy_cache
+*.pyz
+*.egg-info
+dist/
+.envrc

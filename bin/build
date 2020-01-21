@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+"""
+This script builds a Python zipapp from the project. The generated zipapp
+contains all dependencies required to run the project and can be executed
+directly by any python executable.
+"""
+
+import os
+import pathlib
+import subprocess
+import tempfile
+import zipapp
+from typing import Optional
+
+PROJECT_ROOT = pathlib.Path(__file__).parent.parent
+os.chdir(PROJECT_ROOT)
+
+
+def run(*args: str, stdin: Optional[str] = None) -> str:
+    try:
+        print(f'Running: {" ".join(args)}')
+        process = subprocess.run(
+            args, check=True, capture_output=True, encoding="utf-8", input=stdin
+        )
+    except subprocess.CalledProcessError as e:
+        print(e.stdout)
+        print(e.stderr)
+        raise
+    return process.stdout
+
+
+with tempfile.TemporaryDirectory() as temp_dir:
+    build_dir = pathlib.Path(temp_dir)
+
+    # Get project name and version
+    project_name, version = run("poetry", "version").split()
+    print(f"Project name: {project_name}")
+    print(f"Version.....: {version}")
+
+    # Build an sdist of the project
+    run("poetry", "build")
+
+    # Generate a requirements.txt file
+    requirements = run("poetry", "export", "--format", "requirements.txt")
+
+    # Install the requirements into the zipfile
+    run(
+        "pip",
+        "install",
+        "--no-deps",
+        "--target",
+        str(build_dir / "site-packages"),
+        "-r",
+        "/dev/stdin",
+        stdin=requirements,
+    )
+
+    run(
+        "pip",
+        "install",
+        "--target",
+        str(build_dir),
+        "--no-index",
+        "--no-deps",
+        "--find-links",
+        str(PROJECT_ROOT / "dist"),
+        f"{project_name}=={version}",
+    )
+
+    run(
+        "tar",
+        "czf",
+        str(PROJECT_ROOT / f"{project_name}-{version}.tgz"),
+        "-C",
+        str(build_dir),
+        ".",
+    )
