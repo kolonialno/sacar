@@ -51,6 +51,7 @@ class Client:
         resp = await self.client.get(
             f"http://{settings.CONSUL_HOST}/v1/catalog/service/{service_name}",
             params={"tag": tag},
+            headers={"X-Consul-Token": str(settings.CONSUL_HTTP_TOKEN)},
         )
         resp.raise_for_status()
         services = resp.json()
@@ -70,7 +71,11 @@ class Client:
 
         if dataclasses.is_dataclass(value):
             value = dataclasses.asdict(value)
-        await self.client.put(f"http://{settings.CONSUL_HOST}/v1/kv/{key}", json=value)
+        await self.client.put(
+            f"http://{settings.CONSUL_HOST}/v1/kv/{settings.CONSUL_KEY_PREFIX}/{key}",
+            json=value,
+            headers={"X-Consul-Token": str(settings.CONSUL_HTTP_TOKEN)},
+        )
 
     async def get(
         self, key: str, *, cls: Type[T], wait: int = 0, index: int = 0,
@@ -150,7 +155,10 @@ class Client:
         self, *, key: str, params: Dict[str, str], timeout: Optional[int] = None
     ) -> Tuple[httpx.Headers, Any]:
         resp = await self.client.get(
-            f"http://{settings.CONSUL_HOST}/v1/kv/{key}", params=params, timeout=timeout
+            f"http://{settings.CONSUL_HOST}/v1/kv/{settings.CONSUL_KEY_PREFIX}/{key}",
+            params=params,
+            timeout=timeout,
+            headers={"X-Consul-Token": str(settings.CONSUL_HTTP_TOKEN)},
         )
         resp.raise_for_status()
         data = resp.json()

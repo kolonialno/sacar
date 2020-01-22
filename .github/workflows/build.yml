@@ -1,0 +1,21 @@
+name: Build
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+     - name: Check out code
+       uses: actions/checkout@v2
+     - name: Set up Python
+       uses: actions/setup-python@v1
+       with:
+         python-version: 3.7
+     - name: Build tarball
+       run: ./bin/build
+     - name: Archive artifact
+       uses: actions/upload-artifact@v1
+       with:
+         name: sacar.tgz
+         path: sacar.tgz

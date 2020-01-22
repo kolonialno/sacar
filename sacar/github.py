@@ -14,7 +14,7 @@ from . import settings, types
 ###################
 
 # Encode the webhook secret key from settings to a bytes object
-WEBHOOK_SECRET_KEY = str(settings.WEBHOOK_SECRET_KEY).encode("ascii")
+WEBHOOK_SECRET = str(settings.GITHUB_WEBHOOK_SECRET).encode("ascii")
 
 
 def verify_webhook_signature(signature_header: str, body: bytes) -> bool:
@@ -28,7 +28,7 @@ def verify_webhook_signature(signature_header: str, body: bytes) -> bool:
         return False
 
     return hmac.compare_digest(
-        signature, hmac.new(WEBHOOK_SECRET_KEY, msg=body, digestmod=method).hexdigest(),
+        signature, hmac.new(WEBHOOK_SECRET, msg=body, digestmod=method).hexdigest(),
     )
 
 
@@ -181,7 +181,7 @@ async def _request_auth_token(*, installation_id: int) -> Tuple[str, datetime.da
     # Generate an JWT token that we can use to fetch an installation token
     now = int(time.time())
     message = {"iss": 32750, "iat": now, "exp": now + 5 * 60}
-    with open(str(settings.PRIVATE_KEY_PATH), "r") as key_file:
+    with open(str(settings.GITHUB_KEY_PATH), "r") as key_file:
         private_key = key_file.read()
     bearer_token = jwt.encode(message, private_key, algorithm="RS256").decode("ascii")
 

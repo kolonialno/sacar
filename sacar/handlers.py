@@ -33,12 +33,12 @@ async def check_suite_event(payload: types.CheckSuiteEvent) -> Response:
             repo_url=payload.repository.url,
             installation_id=payload.installation.id,
             payload={
-                "name": settings.CHECK_RUN_NAME,
+                "name": settings.GITHUB_CHECK_RUN_NAME,
                 "head_sha": payload.check_suite.head_sha,
                 "status": types.CheckStatus.QUEUED,
                 "external_id": "",
                 "output": {
-                    "title": settings.CHECK_RUN_NAME,
+                    "title": settings.GITHUB_CHECK_RUN_NAME,
                     "summary": "Waiting for tarball",
                 },
             },
@@ -114,14 +114,14 @@ async def tarball_ready_event(payload: types.TarballReadyEvent) -> Response:
             run_id=state.run_id,
             installation_id=state.installation_id,
             payload={
-                "name": settings.CHECK_RUN_NAME,
+                "name": settings.GITHUB_CHECK_RUN_NAME,
                 "head_sha": payload.sha,
                 "status": types.CheckStatus.COMPLETED,
                 "external_id": "",
                 "completed_at": datetime.datetime.now(),
                 "conclusion": types.CheckConclusion.NEUTRAL,
                 "output": {
-                    "title": settings.CHECK_RUN_NAME,
+                    "title": settings.GITHUB_CHECK_RUN_NAME,
                     "summary": "Preparing hosts",
                     "text": "Not preparing commit not on master",
                 },
@@ -149,12 +149,15 @@ async def tarball_ready_event(payload: types.TarballReadyEvent) -> Response:
         run_id=state.run_id,
         installation_id=state.installation_id,
         payload={
-            "name": settings.CHECK_RUN_NAME,
+            "name": settings.GITHUB_CHECK_RUN_NAME,
             "head_sha": payload.sha,
             "status": types.CheckStatus.IN_PROGESS,
             "external_id": "",
             "started_at": started_at,
-            "output": {"title": settings.CHECK_RUN_NAME, "summary": "Preparing hosts"},
+            "output": {
+                "title": settings.GITHUB_CHECK_RUN_NAME,
+                "summary": "Preparing hosts",
+            },
         },
     )
 

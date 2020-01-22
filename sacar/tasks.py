@@ -88,13 +88,13 @@ async def wait_for_hosts(
                 run_id=check_run_id,
                 installation_id=installation_id,
                 payload={
-                    "name": settings.CHECK_RUN_NAME,
+                    "name": settings.GITHUB_CHECK_RUN_NAME,
                     "head_sha": payload.sha,
                     "status": types.CheckStatus.IN_PROGESS,
                     "external_id": "",
                     "started_at": started_at,
                     "output": {
-                        "title": settings.CHECK_RUN_NAME,
+                        "title": settings.GITHUB_CHECK_RUN_NAME,
                         "summary": f"Preparing hosts ({num_ready} of {num_slaves} ready)",
                     },
                 },
@@ -115,7 +115,7 @@ async def wait_for_hosts(
         run_id=check_run_id,
         installation_id=installation_id,
         payload={
-            "name": settings.CHECK_RUN_NAME,
+            "name": settings.GITHUB_CHECK_RUN_NAME,
             "head_sha": payload.sha,
             "status": types.CheckStatus.COMPLETED,
             "external_id": "",
@@ -126,7 +126,7 @@ async def wait_for_hosts(
                 else types.CheckConclusion.SUCCESS
             ),
             "output": {
-                "title": settings.CHECK_RUN_NAME,
+                "title": settings.GITHUB_CHECK_RUN_NAME,
                 "summary": (
                     "Timed out while preparing hosts"
                     if timed_out
