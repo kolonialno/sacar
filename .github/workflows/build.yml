@@ -12,6 +12,10 @@ jobs:
        uses: actions/setup-python@v1
        with:
          python-version: 3.7
+    - name: Set up poetry
+      run: |
+        curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+        echo "::add-path::$HOME/.poetry/bin"
      - name: Build tarball
        run: ./bin/build
      - name: Archive artifact
