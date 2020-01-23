@@ -412,9 +412,7 @@ async def _install_dependencies(*, target_path: pathlib.Path) -> bool:
                     "--find-links",
                     str(target_path / "wheels"),
                     "--no-deps",
-                    "-r",
-                    "/dev/stdin",
-                    stdin=requirement,
+                    requirement,
                 )
             except subprocess.CalledProcessError as e:
                 has_error.set()
