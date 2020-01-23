@@ -269,7 +269,7 @@ async def _prepare(*, tarball_path: str, target_path: pathlib.Path) -> Tuple[boo
 
     logger.debug("Installed deps")
 
-    if not (target_path / "bin" / "prepare").exists():
+    if (target_path / "bin" / "prepare").exists():
         if not await _run_script(name="prepare", target_path=target_path):
             logger.debug("Failed to run prepare script")
             return False, "Failed to run bootstrap script"
@@ -462,6 +462,7 @@ async def _run_script(*, name: str, target_path: pathlib.Path) -> bool:
     """
 
     try:
+        logger.debug("Running script: %s", name)
         await utils.run(
             str(target_path / "bin" / name), cwd=target_path,
         )
