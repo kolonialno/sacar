@@ -257,7 +257,7 @@ async def _prepare(*, tarball_path: str, target_path: pathlib.Path) -> Tuple[boo
 
     logger.debug("Found python")
 
-    if not await _create_venv(target_path=target_path, python=python,):
+    if not await _create_venv(target_path=target_path, python=python):
         logger.debug("Failed to create venv")
         return False, "Failed to create venv"
 
@@ -358,7 +358,7 @@ def _get_python_path(*, target_path: pathlib.Path) -> Optional[str]:
         version_string = _f.read().strip()
 
     if version_string == "3.7":
-        return settings.PYTHON_37_PATH
+        return str(settings.PYTHON_37_PATH)
 
     # Unsupported version
     return None
@@ -393,6 +393,8 @@ async def _install_dependencies(*, target_path: pathlib.Path) -> bool:
     the venv, using only wheels from the <target_path>/wheels/ directory.
     """
 
+    logger.debug("Installing dependencies")
+
     with open(target_path / "requirements.txt", "r") as _f:
         requirements = _f.read().strip().replace("\\\n", "").split("\n")
 
@@ -405,6 +407,7 @@ async def _install_dependencies(*, target_path: pathlib.Path) -> bool:
             requirement = requirements.pop()
 
             try:
+                logger.debug("Installing dependency: '%s'", requirement)
                 await utils.run(
                     str(target_path / ".venv" / "bin" / "pip"),
                     "install",
@@ -415,6 +418,7 @@ async def _install_dependencies(*, target_path: pathlib.Path) -> bool:
                     requirement,
                 )
             except subprocess.CalledProcessError as e:
+                logger.exception("Failed to install dependency: '%s'", requirement)
                 has_error.set()
                 failed_dependencies.append(requirement)
                 logger.debug(e.stderr)
@@ -433,7 +437,7 @@ async def _install_dependencies(*, target_path: pathlib.Path) -> bool:
 
     if has_error.is_set():
         logger.error(
-            "Faild to install %d dependencies: %s",
+            "Failed to install %d dependencies: %s",
             len(failed_dependencies),
             ", ".join(failed_dependencies),
         )
