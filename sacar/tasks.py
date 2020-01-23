@@ -252,7 +252,7 @@ async def _prepare(*, tarball_path: str, target_path: pathlib.Path) -> Tuple[boo
 
     python = _get_python_path(target_path=target_path)
     if not python:
-        logger.debug("Unable to find python")
+        logger.debug("Unable to find correct python version")
         return False, "Unsupported python version"
 
     logger.debug("Found python")
@@ -358,10 +358,7 @@ def _get_python_path(*, target_path: pathlib.Path) -> Optional[str]:
         version_string = _f.read().strip()
 
     if version_string == "3.7":
-        return "python3.7"
-
-    if version_string == "3.8":
-        return "python3.8"
+        return settings.PYTHON_37_PATH
 
     # Unsupported version
     return None
