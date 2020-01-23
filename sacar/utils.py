@@ -1,13 +1,15 @@
 import asyncio
+import os
 import pathlib
 import subprocess
-from typing import List, Optional, Tuple
-
-from . import consul
+from typing import Dict, Optional
 
 
 async def run(
-    *args: str, stdin: Optional[str] = None, cwd: Optional[pathlib.Path] = None
+    *args: str,
+    stdin: Optional[str] = None,
+    cwd: Optional[pathlib.Path] = None,
+    env: Optional[Dict[str, str]] = None
 ) -> str:
     """
     Start a subprocess, wait for it to exit, and return stdout if it returned
@@ -22,6 +24,7 @@ async def run(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=cwd,
+        env=env or os.environ,
     )
     stdout, stderr = await process.communicate(stdin.encode("utf-8") if stdin else None)
 

@@ -2,12 +2,11 @@ import asyncio
 import dataclasses
 import datetime
 import logging
-import multiprocessing
 import os
 import pathlib
 import subprocess
 import tempfile
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 import httpx
 
@@ -395,65 +394,23 @@ async def _install_dependencies(*, target_path: pathlib.Path) -> bool:
 
     logger.debug("Installing dependencies")
 
-    with open(target_path / "requirements.txt", "r") as _f:
-        requirements = _f.read().strip().replace("\\\n", "").split("\n")
-
-    has_error = asyncio.Event()
-    failed_dependencies: List[str] = []
-
-    async def _install_wheels() -> None:
-
-        while requirements and not has_error.is_set():
-            requirement = requirements.pop()
-
-            try:
-                logger.debug("Installing dependency: '%s'", requirement)
-                await utils.run(
-                    str(target_path / ".venv" / "bin" / "pip"),
-                    "install",
-                    "--no-index",
-                    "--find-links",
-                    str(target_path / "wheels"),
-                    "--no-deps",
-                    requirement,
-                )
-            except subprocess.CalledProcessError as e:
-                logger.exception("Failed to install dependency: '%s'", requirement)
-                has_error.set()
-                failed_dependencies.append(requirement)
-                logger.debug(e.stderr)
-                logger.debug(e.stdout)
-                return
-
-    # Create one task for each cpu/thread. This should evenly distribute the load
-    # fairly evenly and allow us to install as fast as possible.
-    tasks = [
-        asyncio.create_task(_install_wheels())
-        for _ in range(multiprocessing.cpu_count())
-    ]
-
-    # Wait for all tasks to finish
-    finished_tasks, _ = await asyncio.wait(tasks)
-
-    if has_error.is_set():
-        logger.error(
-            "Failed to install %d dependencies: %s",
-            len(failed_dependencies),
-            ", ".join(failed_dependencies),
+    try:
+        await utils.run(
+            str(target_path / ".venv" / "bin" / "pip"),
+            "install",
+            "--no-index",
+            "--find-links",
+            str(target_path / "wheels"),
+            "--no-deps",
+            "-r",
+            str(target_path / "requirements.txt"),
         )
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.exception("Failed to install dependencies")
+        logger.debug(e.stderr)
+        logger.debug(e.stdout)
         return False
-
-    # Check all tasks to see if any failed
-    has_failure = False
-    for task in finished_tasks:
-        try:
-            task.result()
-        except Exception as e:
-            logger.exception("Task failed while installing dependency")
-            logger.debug(e)
-            has_failure = True
-
-    return not has_failure
 
 
 async def _run_script(*, name: str, target_path: pathlib.Path) -> bool:
@@ -461,10 +418,14 @@ async def _run_script(*, name: str, target_path: pathlib.Path) -> bool:
     Run a script in the project directory.
     """
 
+    venv_bin = target_path / ".venv" / "bin"
+
     try:
         logger.debug("Running script: %s", name)
         await utils.run(
-            str(target_path / "bin" / name), cwd=target_path,
+            str(target_path / "bin" / name),
+            cwd=target_path,
+            env={**os.environ, "PATH": f'{venv_bin}:{os.environ.get("PATH", "")}'},
         )
         return True
     except subprocess.CalledProcessError as e:
