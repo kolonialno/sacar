@@ -401,7 +401,6 @@ async def _install_dependencies(*, target_path: pathlib.Path) -> bool:
             "--no-index",
             "--find-links",
             str(target_path / "wheels"),
-            "--no-deps",
             "-r",
             str(target_path / "requirements.txt"),
         )
