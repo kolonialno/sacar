@@ -24,7 +24,7 @@ def require_github_webhook_signature(
     @functools.wraps(func)
     async def wrapper(request: Request) -> Union[T, Response]:
         if not github.verify_webhook_signature(
-            request.headers.get("x-github-signature", ""), await request.body()
+            request.headers.get("x-hub-signature", ""), await request.body()
         ):
             return Response(b"", status_code=401)
 
