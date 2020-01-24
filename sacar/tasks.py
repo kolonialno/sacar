@@ -183,6 +183,7 @@ async def prepare_host(*, payload: types.TarballReadyEvent) -> None:
         success, message = await _prepare(
             tarball_path=payload.tarball_path,
             target_path=settings.VERSIONS_DIRECTORY / payload.sha,
+            commit_sha=payload.sha,
         )
         logger.exception("Finished preparing host")
     except Exception as e:
@@ -197,7 +198,9 @@ async def prepare_host(*, payload: types.TarballReadyEvent) -> None:
         )
 
 
-async def _prepare(*, tarball_path: str, target_path: pathlib.Path) -> Tuple[bool, str]:
+async def _prepare(
+    *, tarball_path: str, target_path: pathlib.Path, commit_sha: str
+) -> Tuple[bool, str]:
     """
     Prepare a version for running. Once this command has succeeded, the version
     is ready for running.
@@ -269,7 +272,9 @@ async def _prepare(*, tarball_path: str, target_path: pathlib.Path) -> Tuple[boo
     logger.debug("Installed deps")
 
     if (target_path / "bin" / "prepare").exists():
-        if not await _run_script(name="prepare", target_path=target_path):
+        if not await _run_script(
+            name="prepare", target_path=target_path, commit_sha=commit_sha
+        ):
             logger.debug("Failed to run prepare script")
             return False, "Failed to run bootstrap script"
 
@@ -412,7 +417,7 @@ async def _install_dependencies(*, target_path: pathlib.Path) -> bool:
         return False
 
 
-async def _run_script(*, name: str, target_path: pathlib.Path) -> bool:
+async def _run_script(*, name: str, target_path: pathlib.Path, commit_sha: str) -> bool:
     """
     Run a script in the project directory.
     """
@@ -424,7 +429,11 @@ async def _run_script(*, name: str, target_path: pathlib.Path) -> bool:
         await utils.run(
             str(target_path / "bin" / name),
             cwd=target_path,
-            env={**os.environ, "PATH": f'{venv_bin}:{os.environ.get("PATH", "")}'},
+            env={
+                **os.environ,
+                "PATH": f'{venv_bin}:{os.environ.get("PATH", "")}',
+                "COMMIT_SHA": commit_sha,
+            },
         )
         return True
     except subprocess.CalledProcessError as e:
