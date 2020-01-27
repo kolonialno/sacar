@@ -427,6 +427,7 @@ async def _install_dependencies(*, target_path: pathlib.Path) -> bool:
                 **os.environ,
                 "VIRTUAL_ENV": str(target_path / ".venv"),
                 "PATH": f'{target_path/".venv"/"bin"}:{os.environ.get("PATH", "")}',
+                "PYTHONPATH": "",  # This is set for sacar, so unset it
             },
         )
         logger.debug(stdout)
@@ -454,6 +455,7 @@ async def _run_script(*, name: str, target_path: pathlib.Path, commit_sha: str) 
                 **os.environ,
                 "PATH": f'{venv_bin}:{os.environ.get("PATH", "")}',
                 "COMMIT_SHA": commit_sha,
+                "PYTHONPATH": "",  # This is set for sacar, so unset it
             },
         )
         return True
