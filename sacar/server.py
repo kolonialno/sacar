@@ -1,3 +1,5 @@
+from hypercorn.typing import ASGIFramework
+from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import Response
@@ -33,14 +35,19 @@ async def status(request: Request) -> Response:
     return Response(b"")
 
 
-def get_app(*, master: bool) -> Starlette:
-    return Starlette(
+async def error(request: Request) -> Response:
+    raise RuntimeError("Testing exception")
+
+
+def get_app(*, master: bool) -> ASGIFramework:
+    asgi_app = Starlette(
         debug=True,
         routes=(
             [
                 Route("/github-webhook", github_webhook, methods=["POST"]),
                 Route("/tarball-ready", tarball_ready, methods=["POST"]),
                 Route("/status", status, methods=["GET"]),
+                Route("/error", error, methods=["GET"]),
             ]
             if master
             else [
@@ -49,3 +56,5 @@ def get_app(*, master: bool) -> Starlette:
             ]
         ),
     )
+
+    return SentryAsgiMiddleware(asgi_app)

@@ -4,10 +4,11 @@ import logging
 import signal
 from typing import List
 
+import sentry_sdk
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 
-from .server import get_app
+from . import server, settings
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s",
@@ -34,10 +35,12 @@ async def _main(*, bind: List[str], master: bool) -> None:
     config = Config()
     config.bind = bind
 
-    await serve(get_app(master=master), config, shutdown_trigger=shutdown.wait)  # type: ignore
+    await serve(server.get_app(master=master), config, shutdown_trigger=shutdown.wait)  # type: ignore
 
 
 def main() -> None:
+
+    sentry_sdk.init(dsn=settings.SENTRY_DSN)
 
     parser = argparse.ArgumentParser()
 

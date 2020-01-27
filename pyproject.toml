@@ -14,6 +14,7 @@ dacite = "^1.2.0"
 typing_extensions = "^3.7.4"
 pyjwt = "^1.7.1"
 cryptography = "^2.8"
+sentry-sdk = "^0.14.1"
 
 [tool.poetry.dev-dependencies]
 black = "^19.10b0"
