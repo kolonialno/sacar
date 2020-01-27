@@ -144,7 +144,7 @@ async def wait_for_hosts(
 
 
 async def deploy(
-    *, repo_name: str, commit_sha: str, deployment_id: int
+    *, repo_url: str, repo_name: str, commit_sha: str, deployment_id: int
 ) -> Tuple[bool, str]:
     """
     Deploy a version. This verifies that the version is prepared and then calls

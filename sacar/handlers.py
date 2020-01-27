@@ -85,8 +85,9 @@ async def deployment_event(payload: types.DeploymentEvent) -> Response:
         b"",
         background=BackgroundTask(
             tasks.deploy,
-            commit_sha=payload.sha,
             repo_url=payload.repository.url,
+            repo_name=payload.repository.full_name,
+            commit_sha=payload.sha,
             deployment_id=payload.deployment.id,
         ),
     )
