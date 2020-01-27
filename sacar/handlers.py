@@ -54,6 +54,7 @@ async def check_suite_event(payload: types.CheckSuiteEvent) -> Response:
                     installation_id=payload.installation.id,
                     status="waiting-for-tarball",
                     tarball_path=None,
+                    deployment_id=None,
                 ),
             )
 
