@@ -18,6 +18,8 @@ async def github_webhook(request: Request) -> Response:
     event = request.headers.get("x-github-event", None)
     if event == "check_suite":
         return await handlers.check_suite_event(request)
+    if event == "deployment":
+        return await handlers.deployment_event(request)
     return Response(b"")
 
 

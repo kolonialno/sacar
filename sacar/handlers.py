@@ -79,10 +79,16 @@ async def deployment_event(payload: types.DeploymentEvent) -> Response:
         )
         return Response(b"")
 
-    # TODO: Start deployment
-    logger.warning("TODO: Start deployment")
-
-    return Response(b"")
+    # Respond and start the deployment in the background
+    return Response(
+        b"",
+        background=BackgroundTask(
+            tasks.deploy,
+            commit_sha=payload.sha,
+            repo_url=payload.repository.url,
+            deployment_id=payload.deployment.id,
+        ),
+    )
 
 
 ##################
@@ -151,7 +157,7 @@ async def tarball_ready_event(payload: types.TarballReadyEvent) -> Response:
         payload={
             "name": settings.GITHUB_CHECK_RUN_NAME,
             "head_sha": payload.sha,
-            "status": types.CheckStatus.IN_PROGESS,
+            "status": types.CheckStatus.IN_PROGRESS,
             "external_id": "",
             "started_at": started_at,
             "output": {

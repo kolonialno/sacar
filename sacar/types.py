@@ -18,7 +18,7 @@ class AnnotationLevel(enum.Enum):
 
 class CheckStatus(enum.Enum):
     QUEUED = "queued"
-    IN_PROGESS = "in_progress"
+    IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
 
 
@@ -87,6 +87,29 @@ class CompletedCheck(_BaseStatus, _OptionalStatusFields):
     completed_at: datetime.datetime
 
 
+class DeploymentState(enum.Enum):
+    ERROR = "error"
+    FAILURE = "failure"
+    INACTIVE = "inactive"
+    IN_PROGRESS = "in_progress"
+    QUEUED = "queued"
+    PENDING = "pending"
+    SUCCESS = "success"
+
+
+class _OptionalDeploymmmentStatusFields(TypedDict, total=False):
+    target_url: str
+    log_url: str
+    description: str
+    environment: str
+    environment_url: str
+    auto_inactive: bool
+
+
+class DeploymentStatus(TypedDict, _OptionalDeploymmmentStatusFields):
+    state: DeploymentState
+
+
 ###########################
 # Github webhook payloads #
 ###########################
@@ -116,6 +139,11 @@ class GithubUser:
 
 
 @dataclasses.dataclass(frozen=True)
+class Deployment:
+    id: int
+
+
+@dataclasses.dataclass(frozen=True)
 class DeploymentEvent:
     url: str
     sha: str
@@ -125,6 +153,8 @@ class DeploymentEvent:
     original_environment: str
     environment: str
     creator: GithubUser
+    repository: Repository
+    deployment: Deployment
 
 
 @dataclasses.dataclass(frozen=True)
@@ -163,6 +193,7 @@ class VersionState:
     installation_id: int
     status: str
     tarball_path: Optional[str]
+    deployment_id: Optional[int]
 
 
 @dataclasses.dataclass

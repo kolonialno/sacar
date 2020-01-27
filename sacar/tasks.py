@@ -89,7 +89,7 @@ async def wait_for_hosts(
                 payload={
                     "name": settings.GITHUB_CHECK_RUN_NAME,
                     "head_sha": payload.sha,
-                    "status": types.CheckStatus.IN_PROGESS,
+                    "status": types.CheckStatus.IN_PROGRESS,
                     "external_id": "",
                     "started_at": started_at,
                     "output": {
@@ -143,11 +143,23 @@ async def wait_for_hosts(
     )
 
 
-async def deploy(*, target_path: pathlib.Path) -> Tuple[bool, str]:
+async def deploy(
+    *, repo_name: str, commit_sha: str, deployment_id: int
+) -> Tuple[bool, str]:
     """
     Deploy a version. This verifies that the version is prepared and then calls
     the deploy script from the tarball.
     """
+
+    logger.debug("Deploying %s", commit_sha)
+
+    # Update state with the deployment id
+    async with consul.Client() as client:
+        _, state = await client.get(f"{repo_name}/{commit_sha}", cls=types.VersionState)
+        state.deployment_id = deployment_id
+        await client.put(key=f"{repo_name}/{commit_sha}", value=state)
+
+    target_path = settings.VERSIONS_DIRECTORY / commit_sha
 
     if not target_path.exists():
         return False, "Version does not exist"
@@ -155,7 +167,9 @@ async def deploy(*, target_path: pathlib.Path) -> Tuple[bool, str]:
     if not (target_path / "prepare.done").exists():
         return False, "Version is not prepared"
 
-    if not await _run_script(name="deploy", target_path=target_path):
+    if not await _run_script(
+        name="deploy", target_path=target_path, commit_sha=commit_sha
+    ):
         return False, "Failed to run deploy script"
 
     return True, "Finished deploy"
@@ -400,15 +414,22 @@ async def _install_dependencies(*, target_path: pathlib.Path) -> bool:
     logger.debug("Installing dependencies")
 
     try:
-        await utils.run(
+        stdout = await utils.run(
             str(target_path / ".venv" / "bin" / "pip"),
             "install",
+            "--isolated",
             "--no-index",
             "--find-links",
             str(target_path / "wheels"),
             "-r",
             str(target_path / "requirements.txt"),
+            env={
+                **os.environ,
+                "VIRTUAL_ENV": str(target_path / ".venv"),
+                "PATH": f'{target_path/".venv"/"bin"}:{os.environ.get("PATH", "")}',
+            },
         )
+        logger.debug(stdout)
         return True
     except subprocess.CalledProcessError as e:
         logger.exception("Failed to install dependencies")

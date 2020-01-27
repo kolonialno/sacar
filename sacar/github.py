@@ -146,6 +146,61 @@ async def _create_or_update_check_run(
     return run_id
 
 
+###################
+# Deployments API #
+###################
+
+
+async def create_deployment_status(
+    *,
+    repo_url: str,
+    deployment_id: int,
+    installation_id: int,
+    payload: types.DeploymentStatus,
+) -> int:
+    """
+    Create a new deployment status
+    """
+
+    # Set correct accept header depending on deployment state
+    if payload["state"] in (
+        types.DeploymentState.IN_PROGRESS,
+        types.DeploymentState.QUEUED,
+    ):
+        accept = "application/vnd.github.flash-preview+json"
+    elif payload["state"] == types.DeploymentState.INACTIVE:
+        accept = "application/vnd.github.ant-man-preview+json"
+    else:
+        accept = "application/json"
+
+    # Set up authorization
+    token = await _get_auth_token(installation_id=installation_id)
+    headers = {
+        "Accept": accept,
+        "Authorization": f"token {token}",
+    }
+
+    encoded_payload = JSON_ENCODER.encode(payload)
+
+    print(f"Sending {encoded_payload} to github")
+
+    async with httpx.AsyncClient() as client:
+        response = await client.request(
+            method="POST",
+            url=f"{repo_url}/deploymments/{deployment_id}/statuses",
+            data=encoded_payload,
+            headers=headers,
+        )
+        response.raise_for_status()
+        result = response.json()
+
+    assert isinstance(result, dict)
+    deployment_status_id = result["id"]
+    assert isinstance(deployment_status_id, int)
+
+    return deployment_status_id
+
+
 ####################
 # Internal helpers #
 ####################
