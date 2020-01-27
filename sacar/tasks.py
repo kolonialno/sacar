@@ -258,6 +258,10 @@ async def _prepare(
             logger.debug("Failed to extract")
             return False, "Failed to extract tar"
 
+        logger.debug("Fixing directory permissions")
+
+        target_path.chmod(0o755)
+
         logger.debug("Extracted")
 
     if not (target_path / "python-version").exists():
