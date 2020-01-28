@@ -230,7 +230,7 @@ async def _request_auth_token(*, installation_id: int) -> Tuple[str, datetime.da
 
     # Generate an JWT token that we can use to fetch an installation token
     now = int(time.time())
-    message = {"iss": 32750, "iat": now, "exp": now + 5 * 60}
+    message = {"iss": settings.GITHUB_APP_ID, "iat": now, "exp": now + 5 * 60}
     with open(str(settings.GITHUB_KEY_PATH), "r") as key_file:
         private_key = key_file.read()
     bearer_token = jwt.encode(message, private_key, algorithm="RS256").decode("ascii")
