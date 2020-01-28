@@ -182,8 +182,15 @@ class TarballReadyEvent:
 
     repo_name: str
     sha: str
-    branch: str
+    ref: str
     tarball_path: str
+
+    @property
+    def branch(self) -> str:
+        if self.ref.startswith("refs/heads/"):
+            return self.ref[11:]
+
+        return self.ref
 
 
 @dataclasses.dataclass
