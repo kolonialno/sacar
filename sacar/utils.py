@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import os
 import pathlib
 import subprocess
@@ -50,3 +51,11 @@ def create_lock_file(path: pathlib.Path, *, content: str) -> bool:
         return True
     except FileExistsError:
         return False
+
+
+def now() -> datetime.datetime:
+    """
+    Return a timezone aware datetime of the current time.
+    """
+
+    return datetime.datetime.now(tz=datetime.timezone.utc)

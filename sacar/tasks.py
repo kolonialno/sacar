@@ -102,9 +102,7 @@ async def wait_for_hosts(
             if num_ready >= num_slaves:
                 break
 
-            if datetime.datetime.now() - started_at > datetime.timedelta(
-                seconds=timeout
-            ):
+            if utils.now() - started_at > datetime.timedelta(seconds=timeout):
                 timed_out = True
                 break
 
@@ -118,7 +116,7 @@ async def wait_for_hosts(
             "head_sha": payload.sha,
             "status": types.CheckStatus.COMPLETED,
             "external_id": "",
-            "completed_at": datetime.datetime.now(),
+            "completed_at": utils.now(),
             "conclusion": (
                 types.CheckConclusion.FAILURE
                 if timed_out

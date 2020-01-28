@@ -8,7 +8,7 @@ from typing import Any, Awaitable, Dict, Optional, Tuple, Union
 import httpx
 import jwt
 
-from . import settings, types
+from . import settings, types, utils
 
 logger = logging.getLogger("sacar")
 
@@ -260,11 +260,10 @@ async def _get_auth_token(*, installation_id: int) -> str:
     Get (or request a new) authentication token for the specified installation.
     """
 
-    utcnow = datetime.datetime.now(tz=datetime.timezone.utc)
     token, expiry = AUTH_TOKENS.get(installation_id, (None, None))
 
     # If we have a token and it's still valid for at least 30 seconds, return that
-    if token and expiry and expiry > utcnow + datetime.timedelta(seconds=30):
+    if token and expiry and expiry > utils.now() + datetime.timedelta(seconds=30):
         return token
 
     # The old token was still invalid, so request a new one

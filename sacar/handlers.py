@@ -1,10 +1,9 @@
-import datetime
 import logging
 
 from starlette.background import BackgroundTask
 from starlette.responses import Response
 
-from . import consul, decorators, github, settings, tasks, types
+from . import consul, decorators, github, settings, tasks, types, utils
 
 logger = logging.getLogger("sacar")
 
@@ -132,7 +131,7 @@ async def tarball_ready_event(payload: types.TarballReadyEvent) -> Response:
                 "head_sha": payload.sha,
                 "status": types.CheckStatus.COMPLETED,
                 "external_id": "",
-                "completed_at": datetime.datetime.now(),
+                "completed_at": utils.now(),
                 "conclusion": types.CheckConclusion.NEUTRAL,
                 "output": {
                     "title": settings.GITHUB_CHECK_RUN_NAME,
@@ -150,7 +149,7 @@ async def tarball_ready_event(payload: types.TarballReadyEvent) -> Response:
         )
         return Response(b"")
 
-    started_at = datetime.datetime.now()
+    started_at = utils.now()
 
     logger.debug("Asking slaves to prepare hosts")
 
@@ -204,7 +203,7 @@ async def tarball_ready_event(payload: types.TarballReadyEvent) -> Response:
                 "head_sha": payload.sha,
                 "status": types.CheckStatus.COMPLETED,
                 "external_id": "",
-                "completed_at": datetime.datetime.now(),
+                "completed_at": utils.now(),
                 "conclusion": types.CheckConclusion.FAILURE,
                 "output": {
                     "title": settings.GITHUB_CHECK_RUN_NAME,
