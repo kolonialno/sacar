@@ -6,20 +6,43 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-     - name: Check out code
-       uses: actions/checkout@v2
-     - name: Set up Python
-       uses: actions/setup-python@v1
-       with:
-         python-version: 3.7
-     - name: Set up poetry
-       run: |
-         curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
-         echo "::add-path::$HOME/.poetry/bin"
-     - name: Build tarball
-       run: ./bin/build
-     - name: Archive artifact
-       uses: actions/upload-artifact@v1
-       with:
-         name: sacar.tgz
-         path: sacar.tgz
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Set up poetry
+        run: |
+          curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+          echo "::add-path::$HOME/.poetry/bin"
+      - name: Build tarball
+        run: ./bin/build
+      - name: Archive artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: sacar.tgz
+          path: sacar.tgz
+      - name: Create release (if release branch)
+        if: startsWith(github.ref, 'refs/tags/v') == true
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: Release ${{ github.ref }}
+          draft: false
+          prerelease: true
+      - name: Upload tarball
+        id: upload-release-asset
+        if: startsWith(github.ref, 'refs/tags/v') == true
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./sacar.tgz
+          asset_name: sacar-linux.tgz
+          asset_content_type: application/tar+gzip
