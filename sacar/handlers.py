@@ -20,14 +20,18 @@ async def check_suite_event(payload: types.CheckSuiteEvent) -> Response:
     Handle an incomming check suite event.
     """
 
-    logger.debug("Got check_suite webhook event: %s", payload)
-
     if payload.action in (
         types.CheckSuiteAction.REQUESTED,
         types.CheckSuiteAction.REREQUESTED,
     ):
 
-        logger.debug("Creating check run")
+        logger.debug("Got check_suite webhook event: %s", payload)
+
+        logger.debug(
+            "Creating check run: %s %s",
+            payload.check_suite.head_branch,
+            payload.check_suite.head_sha,
+        )
 
         run_id = await github.create_or_update_queued_check_run(
             repo_url=payload.repository.url,
@@ -59,6 +63,8 @@ async def check_suite_event(payload: types.CheckSuiteEvent) -> Response:
             )
 
         logger.debug("Stored state in Consul")
+    else:
+        logger.debug('Ignoring check_suite event with action "%s"', payload.action)
 
     return Response(b"")
 
@@ -114,7 +120,7 @@ async def tarball_ready_event(payload: types.TarballReadyEvent) -> Response:
 
     if payload.branch != "master":
 
-        logger.debug("Branch is not master, not prerparing: %s", payload.branch)
+        logger.debug("Branch is not master, not preparing: %s", payload.branch)
 
         # If we're not on the master branch, don't prepare
         await github.create_or_update_completed_check_run(
@@ -148,43 +154,66 @@ async def tarball_ready_event(payload: types.TarballReadyEvent) -> Response:
 
     logger.debug("Asking slaves to prepare hosts")
 
-    num_slaves = await tasks.prepare_hosts(payload=payload, state=state)
+    try:
+        num_slaves = await tasks.prepare_hosts(payload=payload, state=state)
 
-    logger.debug("Asked slaves to prepare hosts")
+        logger.debug("Asked slaves to prepare hosts")
 
-    await github.create_or_update_in_progress_check_run(
-        repo_url=f"https://api.github.com/repos/{payload.repo_name}",
-        run_id=state.run_id,
-        installation_id=state.installation_id,
-        payload={
-            "name": settings.GITHUB_CHECK_RUN_NAME,
-            "head_sha": payload.sha,
-            "status": types.CheckStatus.IN_PROGRESS,
-            "external_id": "",
-            "started_at": started_at,
-            "output": {
-                "title": settings.GITHUB_CHECK_RUN_NAME,
-                "summary": "Preparing hosts",
-            },
-        },
-    )
-
-    logger.debug("Updated github check")
-
-    # Respond that we have received the webhook and wait for the hosts to finish
-    # in the background.
-    return Response(
-        b"",
-        status_code=202,
-        background=BackgroundTask(
-            tasks.wait_for_hosts,
-            num_slaves=num_slaves,
-            payload=payload,
-            check_run_id=state.run_id,
+        await github.create_or_update_in_progress_check_run(
+            repo_url=f"https://api.github.com/repos/{payload.repo_name}",
+            run_id=state.run_id,
             installation_id=state.installation_id,
-            started_at=started_at,
-        ),
-    )
+            payload={
+                "name": settings.GITHUB_CHECK_RUN_NAME,
+                "head_sha": payload.sha,
+                "status": types.CheckStatus.IN_PROGRESS,
+                "external_id": "",
+                "started_at": started_at,
+                "output": {
+                    "title": settings.GITHUB_CHECK_RUN_NAME,
+                    "summary": "Preparing hosts",
+                },
+            },
+        )
+
+        logger.debug("Updated github check")
+
+        # Respond that we have received the webhook and wait for the hosts to finish
+        # in the background.
+        return Response(
+            b"",
+            status_code=202,
+            background=BackgroundTask(
+                tasks.wait_for_hosts,
+                num_slaves=num_slaves,
+                payload=payload,
+                check_run_id=state.run_id,
+                installation_id=state.installation_id,
+                started_at=started_at,
+            ),
+        )
+
+    except Exception:
+
+        await github.create_or_update_completed_check_run(
+            repo_url=f"https://api.github.com/repos/{payload.repo_name}",
+            run_id=state.run_id,
+            installation_id=state.installation_id,
+            payload={
+                "name": settings.GITHUB_CHECK_RUN_NAME,
+                "head_sha": payload.sha,
+                "status": types.CheckStatus.COMPLETED,
+                "external_id": "",
+                "completed_at": datetime.datetime.now(),
+                "conclusion": types.CheckConclusion.FAILURE,
+                "output": {
+                    "title": settings.GITHUB_CHECK_RUN_NAME,
+                    "summary": "Error while preparing version",
+                },
+            },
+        )
+
+        raise
 
 
 @decorators.decode_payload(data_class=types.TarballReadyEvent)

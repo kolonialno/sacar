@@ -1,6 +1,7 @@
 import datetime
 import hmac
 import json
+import logging
 import time
 from typing import Any, Awaitable, Dict, Optional, Tuple, Union
 
@@ -8,6 +9,8 @@ import httpx
 import jwt
 
 from . import settings, types
+
+logger = logging.getLogger("sacar")
 
 ###################
 # Webhook helpers #
@@ -112,14 +115,6 @@ async def _create_or_update_check_run(
         url = f"{repo_url}/check-runs"
         method = "POST"
 
-    print(f"URL............: {url}")
-    print(f"Method.........: {method}")
-    print(f"Repo URL.......: {repo_url}")
-    print(f"Installation id: {installation_id}")
-    print(f"Run id.........: {run_id}")
-    print(f"Payload........: {payload}")
-    return 1
-
     # Set up authorization
     token = await _get_auth_token(installation_id=installation_id)
     headers = {
@@ -129,7 +124,7 @@ async def _create_or_update_check_run(
 
     encoded_payload = JSON_ENCODER.encode(payload)
 
-    print(f"Sending {encoded_payload} to github")
+    logger.debug(f"Sending {encoded_payload} to github")
 
     async with httpx.AsyncClient() as client:
         response = await client.request(
