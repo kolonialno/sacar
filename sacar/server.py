@@ -5,7 +5,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import Route
 
-from . import handlers
+from . import handlers, settings
 from .decorators import require_github_webhook_signature
 
 
@@ -41,7 +41,7 @@ async def error(request: Request) -> Response:
     raise RuntimeError("Testing exception")
 
 
-def get_app(*, master: bool) -> ASGIFramework:
+def get_app(*, master: bool, sentry: bool = True) -> ASGIFramework:
     asgi_app = Starlette(
         debug=True,
         routes=(
@@ -59,4 +59,9 @@ def get_app(*, master: bool) -> ASGIFramework:
         ),
     )
 
-    return SentryAsgiMiddleware(asgi_app)
+    if sentry and not settings.SENTRY_DSN:
+        raise RuntimeError(
+            "Cannot enable Sentry integration without SACAR_SENTRY_DSN being set"
+        )
+
+    return SentryAsgiMiddleware(asgi_app) if sentry else asgi_app

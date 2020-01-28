@@ -117,9 +117,13 @@ async def tarball_ready_event(payload: types.TarballReadyEvent) -> Response:
             f"{payload.repo_name}/{payload.sha}", cls=types.VersionState
         )
 
-    if payload.branch != "master":
+    if payload.branch != settings.DEPLOY_BRANCH:
 
-        logger.debug("Branch is not master, not preparing: %s", payload.branch)
+        logger.debug(
+            "Not deploying commit on %s, only deploying commits on %s",
+            payload.branch,
+            settings.DEPLOY_BRANCH,
+        )
 
         # If we're not on the master branch, don't prepare
         await github.create_or_update_completed_check_run(

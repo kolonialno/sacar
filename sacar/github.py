@@ -241,6 +241,8 @@ async def _request_auth_token(*, installation_id: int) -> Tuple[str, datetime.da
     }
     url = f"https://api.github.com/app/installations/{installation_id}/access_tokens"
 
+    logger.debug("Requesting GitHub auth token for installation: %s", installation_id)
+
     async with httpx.AsyncClient() as client:
         response = await client.post(url, headers=headers)
         response.raise_for_status()

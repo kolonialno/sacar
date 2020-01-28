@@ -10,10 +10,11 @@ DEBUG = config("SACAR_DEBUG", cast=bool, default=False)
 HOSTNAME = config("SACAR_HOSTNAME")
 ENVIRONMENT = config("SACAR_ENVIRONMENT")
 
+DEPLOY_BRANCH = config("SACAR_DEPLOY_BRANCH")
 VERSIONS_DIRECTORY = config("SACAR_VERSIONS_DIRECTORY", cast=pathlib.Path)
 SLAVE_PREPARE_TIMEOUT = config("SACAR_SLAVE_PREPARE_TIMEOUT", cast=int)
 PYTHON_37_PATH = config("SACAR_PYTHON37_PATH", default="python3.7")
-SENTRY_DSN = config("SACAR_SENTRY_DSN")
+SENTRY_DSN = config("SACAR_SENTRY_DSN", default="")
 
 GITHUB_APP_ID = config("SACAR_GITHUB_APP_ID", cast=int)
 GITHUB_KEY_PATH = config("SACAR_GITHUB_KEY_PATH", cast=Secret)
