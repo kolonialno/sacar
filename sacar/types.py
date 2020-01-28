@@ -141,10 +141,6 @@ class GithubUser:
 @dataclasses.dataclass(frozen=True)
 class Deployment:
     id: int
-
-
-@dataclasses.dataclass(frozen=True)
-class DeploymentEvent:
     url: str
     sha: str
     ref: Optional[str]
@@ -153,6 +149,10 @@ class DeploymentEvent:
     original_environment: str
     environment: str
     creator: GithubUser
+
+
+@dataclasses.dataclass(frozen=True)
+class DeploymentEvent:
     repository: Repository
     deployment: Deployment
 

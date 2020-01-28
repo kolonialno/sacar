@@ -77,10 +77,10 @@ async def deployment_event(payload: types.DeploymentEvent) -> Response:
     logger.debug("Got deployment webhook event: %s", payload)
 
     # Ignore deployment events for other environments
-    if payload.environment != settings.ENVIRONMENT:
+    if payload.deployment.environment != settings.ENVIRONMENT:
         logger.debug(
             "Wrong environment, not deploying (%s != %s)",
-            payload.environment,
+            payload.deployment.environment,
             settings.ENVIRONMENT,
         )
         return Response(b"")
@@ -92,7 +92,7 @@ async def deployment_event(payload: types.DeploymentEvent) -> Response:
             tasks.deploy,
             repo_url=payload.repository.url,
             repo_name=payload.repository.full_name,
-            commit_sha=payload.sha,
+            commit_sha=payload.deployment.sha,
             deployment_id=payload.deployment.id,
         ),
     )
