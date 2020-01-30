@@ -5,6 +5,8 @@ import pathlib
 import subprocess
 from typing import Dict, Optional
 
+from . import settings
+
 
 async def run(
     *args: str,
@@ -59,3 +61,11 @@ def now() -> datetime.datetime:
     """
 
     return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
+def get_version_dir(*, sha: str) -> pathlib.Path:
+    """
+    Get the directory for the given sha
+    """
+
+    return settings.VERSIONS_DIRECTORY / sha[: settings.VERSIONS_HASH_LENGTH]

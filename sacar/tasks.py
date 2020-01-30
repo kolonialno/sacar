@@ -196,7 +196,9 @@ async def deploy(*, payload: types.DeploymentEvent) -> None:
             logger.debug(f"Deploying %s on %s:%s", payload.deployment.sha, host, port)
 
             resp = await client.put(
-                f"http://{host}:{port}/deploy-host", json=dataclasses.asdict(payload)
+                f"http://{host}:{port}/deploy-host",
+                json=dataclasses.asdict(payload),
+                timeout=120,
             )
             resp.raise_for_status()
 
@@ -232,7 +234,7 @@ async def prepare_host(*, payload: types.TarballReadyEvent) -> None:
         try:
             success, message = await _prepare(
                 tarball_path=payload.tarball_path,
-                target_path=settings.VERSIONS_DIRECTORY / payload.sha,
+                target_path=utils.get_version_dir(sha=payload.sha),
                 commit_sha=payload.sha,
             )
             logger.exception("Finished preparing host")
@@ -254,7 +256,7 @@ async def deploy_host(
     Run actual deploy, e.g. updating supervisord configs etc
     """
 
-    target_path = settings.VERSIONS_DIRECTORY / payload.deployment.sha
+    target_path = utils.get_version_dir(sha=payload.deployment.sha)
 
     if not target_path.exists():
         return False, "Version does not exist"
