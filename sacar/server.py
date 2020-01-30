@@ -33,6 +33,11 @@ async def prepare_host(request: Request) -> Response:
     return await handlers.prepare_host(request)
 
 
+# TODO: Verify request
+async def deploy_host(request: Request) -> Response:
+    return await handlers.deploy_host(request)
+
+
 async def status(request: Request) -> Response:
     return Response(b"")
 
@@ -54,6 +59,7 @@ def get_app(*, master: bool, sentry: bool = True) -> ASGIFramework:
             if master
             else [
                 Route("/prepare-host", prepare_host, methods=["PUT"]),
+                Route("/deploy-host", deploy_host, methods=["PUT"]),
                 Route("/status", status, methods=["GET"]),
             ]
         ),

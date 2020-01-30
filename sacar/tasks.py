@@ -23,7 +23,9 @@ async def prepare_hosts(
     *, payload: types.TarballReadyEvent, state: types.VersionState
 ) -> int:
     """
-    Prepare all hosts
+    Ask all slaves to prepare a version. This is run inline in the tarball ready
+    request. Updating the GitHub check is done as a background through the
+    wait_for_hosts task defined belov.
     """
 
     async with httpx.AsyncClient() as client:
@@ -38,7 +40,7 @@ async def prepare_hosts(
         async def _notify_slave(*, host: str, port: int) -> None:
             """Helper to notify a slave to start preparing a version"""
 
-            logger.debug(f"Notifying {host}:{port}")
+            logger.debug(f"Notifying %s:%s to prepare %s", host, port, payload.sha)
 
             resp = await client.put(
                 f"http://{host}:{port}/prepare-host", json=dataclasses.asdict(payload)
@@ -69,7 +71,8 @@ async def wait_for_hosts(
     timeout: int = 5 * 60,
 ) -> None:
     """
-    Wait for all slaves to finish, up to a configurable timeout.
+    Wait for all slaves to finish preparing a version. This updates the GitHub
+    check along and the state stored in consul.
     """
 
     timed_out = False
@@ -106,71 +109,106 @@ async def wait_for_hosts(
                 timed_out = True
                 break
 
-    # If we're not on the master branch, don't prepare
-    await github.create_or_update_completed_check_run(
-        repo_url=f"https://api.github.com/repos/{payload.repo_name}",
-        run_id=check_run_id,
-        installation_id=installation_id,
-        payload={
-            "name": settings.GITHUB_CHECK_RUN_NAME,
-            "head_sha": payload.sha,
-            "status": types.CheckStatus.COMPLETED,
-            "external_id": "",
-            "completed_at": utils.now(),
-            "conclusion": (
-                types.CheckConclusion.FAILURE
-                if timed_out
-                else types.CheckConclusion.SUCCESS
-            ),
-            "output": {
-                "title": settings.GITHUB_CHECK_RUN_NAME,
-                "summary": (
-                    "Timed out while preparing hosts"
+        # If we're not on the master branch, don't prepare
+        await github.create_or_update_completed_check_run(
+            repo_url=f"https://api.github.com/repos/{payload.repo_name}",
+            run_id=check_run_id,
+            installation_id=installation_id,
+            payload={
+                "name": settings.GITHUB_CHECK_RUN_NAME,
+                "head_sha": payload.sha,
+                "status": types.CheckStatus.COMPLETED,
+                "external_id": "",
+                "completed_at": utils.now(),
+                "conclusion": (
+                    types.CheckConclusion.FAILURE
                     if timed_out
-                    else "All hosts ready"
+                    else types.CheckConclusion.SUCCESS
                 ),
-                "text": (
-                    f"Timed out after {timeout} seconds, "
-                    f"{num_ready} of {num_slaves} hosts ready"
-                    if timed_out
-                    else "Finished preparing all {num_slaves} hosts"
-                ),
+                "output": {
+                    "title": settings.GITHUB_CHECK_RUN_NAME,
+                    "summary": (
+                        "Timed out while preparing hosts"
+                        if timed_out
+                        else "All hosts ready"
+                    ),
+                    "text": (
+                        f"Timed out after {timeout} seconds, "
+                        f"{num_ready} of {num_slaves} hosts ready"
+                        if timed_out
+                        else "Finished preparing all {num_slaves} hosts"
+                    ),
+                },
+                # TODO: Add deploy action?
             },
-            # TODO: Add deploy action?
-        },
-    )
+        )
+
+        # Update state and store in Consul
+        _, state = await client.get(
+            key=f"{payload.repo_name}/{payload.sha}", cls=types.VersionState
+        )
+        state.status = "prepared"
+        await client.put(
+            key=f"{payload.repo_name}/{payload.sha}", value=state,
+        )
 
 
-async def deploy(
-    *, repo_url: str, repo_name: str, commit_sha: str, deployment_id: int
-) -> Tuple[bool, str]:
+async def deploy(*, payload: types.DeploymentEvent) -> None:
     """
     Deploy a version. This verifies that the version is prepared and then calls
     the deploy script from the tarball.
     """
 
-    logger.debug("Deploying %s", commit_sha)
+    logger.debug("Deploying %s", payload.deployment.sha)
+
+    state_key = f"{payload.repository.full_name}/{payload.deployment.sha}"
 
     # Update state with the deployment id
-    async with consul.Client() as client:
-        _, state = await client.get(f"{repo_name}/{commit_sha}", cls=types.VersionState)
-        state.deployment_id = deployment_id
-        await client.put(key=f"{repo_name}/{commit_sha}", value=state)
+    async with httpx.AsyncClient() as client:
 
-    target_path = settings.VERSIONS_DIRECTORY / commit_sha
+        consul_client = consul.Client(client=client)
 
-    if not target_path.exists():
-        return False, "Version does not exist"
+        _, state = await consul_client.get(state_key, cls=types.VersionState)
 
-    if not (target_path / "prepare.done").exists():
-        return False, "Version is not prepared"
+        # Verify that all slaves are prepared. The state is only set to prepared
+        # once all slaves have successfully updated their state
+        assert state.status == "prepared"
 
-    if not await _run_script(
-        name="deploy", target_path=target_path, commit_sha=commit_sha
-    ):
-        return False, "Failed to run deploy script"
+        # Set deployment details in the state
+        state.deployment_id = payload.deployment.id
+        state.status = "deploying"
+        await consul_client.put(key=state_key, value=state)
 
-    return True, "Finished deploy"
+        # TODO: Create GitHub deployment status
+
+        # Run pre-deploy script (ie. db migrations)
+        success, message = await deploy_host(payload=payload, master=True)
+        if not success:
+            raise RuntimeError(f"Failed to run pre-deploy script: {message}")
+
+        # Find all slaves, through Consul services
+        slaves = await consul_client.get_service_nodes(
+            service_name="sacar", tag="slave"
+        )
+
+        # Deploy each slave in sequence
+        for host, port in slaves:
+            logger.debug(f"Deploying %s on %s:%s", payload.deployment.sha, host, port)
+
+            resp = await client.put(
+                f"http://{host}:{port}/deploy-host", json=dataclasses.asdict(payload)
+            )
+            resp.raise_for_status()
+
+        logger.debug("Finished deploying %s", payload.deployment.sha)
+
+        # Update state and store in Consul
+        state.status = "deployed"
+        await consul_client.put(
+            key=state_key, value=state,
+        )
+
+        # TODO: Create GitHub deployment status
 
 
 ###############
@@ -191,23 +229,52 @@ async def prepare_host(*, payload: types.TarballReadyEvent) -> None:
             value=types.SlaveVersionState(done=False),
         )
 
-    try:
-        success, message = await _prepare(
-            tarball_path=payload.tarball_path,
-            target_path=settings.VERSIONS_DIRECTORY / payload.sha,
-            commit_sha=payload.sha,
-        )
-        logger.exception("Finished preparing host")
-    except Exception as e:
-        logger.exception("Failed to prepare host")
-        success = False
-        message = str(e)
+        try:
+            success, message = await _prepare(
+                tarball_path=payload.tarball_path,
+                target_path=settings.VERSIONS_DIRECTORY / payload.sha,
+                commit_sha=payload.sha,
+            )
+            logger.exception("Finished preparing host")
+        except Exception as e:
+            logger.exception("Failed to prepare host")
+            success = False
+            message = str(e)
 
-    async with consul.Client() as client:
         await client.put(
             key=f"{payload.repo_name}/{payload.sha}/{settings.HOSTNAME}",
             value=types.SlaveVersionState(done=True, success=success, message=message),
         )
+
+
+async def deploy_host(
+    *, payload: types.DeploymentEvent, master: bool = False
+) -> Tuple[bool, str]:
+    """
+    Run actual deploy, e.g. updating supervisord configs etc
+    """
+
+    target_path = settings.VERSIONS_DIRECTORY / payload.deployment.sha
+
+    if not target_path.exists():
+        return False, "Version does not exist"
+
+    if not (target_path / "prepare.done").exists():
+        return False, "Version is not prepared"
+
+    if not await _run_script(
+        name="pre-deploy" if master else "deploy",
+        target_path=target_path,
+        commit_sha=payload.deployment.sha,
+    ):
+        return False, "Failed to run deploy script"
+
+    return True, "Finished deploy"
+
+
+####################
+# Internal helpers #
+####################
 
 
 async def _prepare(
@@ -435,7 +502,15 @@ async def _install_dependencies(*, target_path: pathlib.Path) -> bool:
         logger.debug(stdout)
         return True
     except subprocess.CalledProcessError as e:
-        logger.exception("Failed to install dependencies")
+        logger.exception(
+            "Failed to install dependencies in %s",
+            target_path,
+            extra={
+                "rerturncode": e.returncode,
+                "stdout": e.stdout,
+                "stderr": e.stderr,
+            },
+        )
         logger.debug(e.stderr)
         logger.debug(e.stdout)
         return False
@@ -455,6 +530,7 @@ async def _run_script(*, name: str, target_path: pathlib.Path, commit_sha: str) 
             cwd=target_path,
             env={
                 **os.environ,
+                "VIRTUAL_ENV": str(target_path / ".venv"),
                 "PATH": f'{venv_bin}:{os.environ.get("PATH", "")}',
                 "COMMIT_SHA": commit_sha,
                 "PYTHONPATH": "",  # This is set for sacar, so unset it
@@ -462,6 +538,16 @@ async def _run_script(*, name: str, target_path: pathlib.Path, commit_sha: str) 
         )
         return True
     except subprocess.CalledProcessError as e:
+        logger.exception(
+            "Failed to run %s script in %s",
+            name,
+            target_path,
+            extra={
+                "rerturncode": e.returncode,
+                "stdout": e.stdout,
+                "stderr": e.stderr,
+            },
+        )
         logger.debug(e.stderr)
         logger.debug(e.stdout)
         return False

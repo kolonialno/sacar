@@ -233,3 +233,13 @@ async def prepare_host(payload: types.TarballReadyEvent) -> Response:
         # Start preparing in the background
         background=BackgroundTask(tasks.prepare_host, payload=payload),
     )
+
+
+@decorators.decode_payload(data_class=types.DeploymentEvent)
+async def deploy_host(payload: types.DeploymentEvent) -> Response:
+    """
+    Callback from the master node to deploy a given version.
+    """
+
+    await tasks.deploy_host(payload=payload)
+    return Response(b"")
