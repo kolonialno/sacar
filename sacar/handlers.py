@@ -86,16 +86,7 @@ async def deployment_event(payload: types.DeploymentEvent) -> Response:
         return Response(b"")
 
     # Respond and start the deployment in the background
-    return Response(
-        b"",
-        background=BackgroundTask(
-            tasks.deploy,
-            repo_url=payload.repository.url,
-            repo_name=payload.repository.full_name,
-            commit_sha=payload.deployment.sha,
-            deployment_id=payload.deployment.id,
-        ),
-    )
+    return Response(b"", background=BackgroundTask(tasks.deploy, payload=payload))
 
 
 ##################
