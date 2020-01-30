@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sacar"
-version = "0.0.1-alpha.18"
+version = "0.0.1-alpha.19"
 description = ""
 authors = ["Kolonial.no <tech@kolonial.no>"]
 
